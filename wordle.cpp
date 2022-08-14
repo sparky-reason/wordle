@@ -1,5 +1,11 @@
 #include "wordle.h"
 
+#include <iostream>
+#include <algorithm>
+#include <map>
+#include <set>
+#include <cmath>
+
 #include <windows.h>
 
 using namespace std;
@@ -62,8 +68,8 @@ void print_feedback(const std::string& word, const Feedback& feedback) {
 }
 
 
-SimpleWordleStrategy::SimpleWordleStrategy(const std::vector<std::string>& words) :
-    words(words)
+SimpleWordleStrategy::SimpleWordleStrategy(const std::vector<std::string>& words, std::optional<std::string> initial_guess /*= std::nullopt*/) :
+    words(words), initial_guess(initial_guess)
 {
     copy(words.begin(), words.end(), back_inserter(consistent_words));
 }
@@ -79,6 +85,9 @@ void SimpleWordleStrategy::process_feedback(const std::string& guessed_word, con
 }
 
 std::string SimpleWordleStrategy::guess_word() const {
+    if (consistent_words.size() == words.size() && initial_guess.has_value())
+        return initial_guess.value();
+
     return *(consistent_words.begin());
 }
 
@@ -89,11 +98,15 @@ void SimpleWordleStrategy::reset()
 }
 
 
-GreedyWordleStrategy::GreedyWordleStrategy(const std::vector<std::string>& words, bool adverserial /*= false*/)
-    : SimpleWordleStrategy(words), adverserial(adverserial)
+GreedyWordleStrategy::GreedyWordleStrategy(const std::vector<std::string>& words, 
+    std::optional<std::string> initial_guess /*= std::nullopt*/,  bool adverserial /*= false*/)
+    : SimpleWordleStrategy(words, initial_guess), adverserial(adverserial)
 {}
 
 std::string GreedyWordleStrategy::guess_word() const {
+    if (consistent_words.size() == words.size() && initial_guess.has_value())
+        return initial_guess.value();
+
     if (consistent_words.size() == 1)
         return *consistent_words.begin();
 

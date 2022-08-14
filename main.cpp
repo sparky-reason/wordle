@@ -1,9 +1,17 @@
 #include "wordle.h"
 
+#include <iostream>
+#include <set>
+#include <map>
 #include <fstream>
-#include <cstdlib>
-#include <ctime>
+#include <sstream>
 #include <memory>
+#include <functional>
+#include <thread>
+#include <mutex>
+#include <random>
+#include <algorithm>
+#include <execution>
 
 #include <windows.h>
 
@@ -39,34 +47,66 @@ int main()
     cout << "Number of unique words with " << WORDLE_LENGTH << " characters: " << words.size() << endl;
 
     // setup strategies
-    map<string, unique_ptr<WordleStrategy>> strategies;
-    strategies["simple"] = make_unique<SimpleWordleStrategy>(words);
-    strategies["greedy"] = make_unique<GreedyWordleStrategy>(words);
-    strategies["greedy_adv"] = make_unique<GreedyWordleStrategy>(words, true);
+    typedef function<unique_ptr<WordleStrategy>()> WordleStrategyGenerator;
+    map<string, WordleStrategyGenerator> strategies;
+    map<string, string> initial_guesses;
+
+    // pre-calculate initial guesses
+    string initial_guess_simple = SimpleWordleStrategy(words).guess_word();
+    string initial_guess_greedy = GreedyWordleStrategy(words).guess_word();
+    string initial_guess_greedy_adv = GreedyWordleStrategy(words, nullopt, true).guess_word();
+
+    strategies["simple"] = [&] { return make_unique<SimpleWordleStrategy>(words, initial_guess_simple); };
+    strategies["greedy"] = [&] { return make_unique<GreedyWordleStrategy>(words, initial_guess_greedy); };
+    strategies["greedy_adv"] = [&] { return make_unique<GreedyWordleStrategy>(words, initial_guess_greedy_adv, true); };
 
     srand(time(nullptr)); // use current time as seed for random generator
 
     cout << "Playing example game..." << endl;
-    string true_word = words[rand() % words.size()];
+    string test_word = words[rand() % words.size()];
     for (auto& named_strat : strategies) {
         cout << "--- " << named_strat.first << " ---" << endl;
-        play_wordle(true_word, *(named_strat.second));      
+        play_wordle(test_word, *named_strat.second());
         cout << endl;
     }
 
-    // play some games and print sum of needed turns
+    // play some games and log number of needed turns to file
     cout << "Playing multiple games..." << endl;
-    map<string, unsigned int> turn_sums;
-    const int N_GAMES = 10;
-    for (int i = 0; i < N_GAMES; ++i) {
-        cout << i << endl;
-        string true_word = words[rand() % words.size()];
-        for (auto& named_strat : strategies) {
-            turn_sums[named_strat.first] += play_wordle(true_word, *(named_strat.second), 10, true);
-        }
+
+    // setup output file
+    ostringstream out_filename;
+    out_filename << "./data/strategy_turns_" << WORDLE_LENGTH << ".csv";
+    ofstream out_file(out_filename.str());
+    out_file << "word";
+    for (auto& named_strat : strategies) {
+        out_file << '\t' << named_strat.first;
     }
-    cout << "Total number of turn needed" << endl;
-    for (auto& named_turns : turn_sums) {
-        cout << named_turns.first << " : " << named_turns.second << endl;
-    }
+    out_file << endl;
+
+    // get sample of test words
+    const unsigned int N_GAMES = 1024;
+    vector<string> test_words;
+    std::sample(words.begin(), words.end(), std::back_inserter(test_words),
+        N_GAMES, std::mt19937{ std::random_device{}() });
+    
+    // run games on test words in parallel
+    const unsigned int MAX_TURNS = 10;
+    mutex mtx;
+    for_each(execution::par , test_words.begin(), test_words.end(),
+        [&](auto test_word) {
+            vector<unsigned int> turns;
+            for (auto& named_strat : strategies) {
+                turns.push_back(play_wordle(test_word, *named_strat.second(), MAX_TURNS, true));
+            }
+
+            {
+                lock_guard<mutex> lock(mtx);
+                cout << '.';
+                out_file << test_word;
+                for (auto t : turns) {
+                    out_file << '\t' << t;
+                }
+                out_file << endl;
+            }
+        });
 }
