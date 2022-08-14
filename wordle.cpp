@@ -138,7 +138,7 @@ unsigned int play_wordle(const std::string& true_word, WordleStrategy& strategy,
         std::string guess_word = strategy.guess_word();
         Feedback feedback = check(guess_word, true_word);
         if (!silent)
-            print_feedback(guess_word, check(guess_word, true_word));
+            print_feedback(guess_word, feedback);
         if (is_win(feedback))
             return i_turn;
         strategy.process_feedback(guess_word, feedback);
