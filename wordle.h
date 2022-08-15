@@ -7,7 +7,7 @@
 #include <array>
 #include <optional>
 
-const int WORDLE_LENGTH = 5;  // wordle length hardcoded for performance reasons
+const int WORDLE_LENGTH = 4;  // wordle length hardcoded for performance reasons
 
 enum CharFeedback : std::int8_t
 {
@@ -30,21 +30,20 @@ class WordleStrategy {
 public:
     virtual void process_feedback(const std::string& guessed_word, const Feedback& feedback) = 0;
     virtual std::string guess_word() const = 0;
-    virtual void reset() = 0;
 };
 
 
 // Simple wordle strategy that picks the first word consistent with the gathered feedback
 class SimpleWordleStrategy : public WordleStrategy {
 public:
-    SimpleWordleStrategy(const std::vector<std::string>& words, std::optional<std::string> initial_guess=std::nullopt);
+    SimpleWordleStrategy(const std::vector<std::string>& dictionary, const std::vector<std::string>& targets, std::optional<std::string> initial_guess=std::nullopt);
 
     virtual void process_feedback(const std::string& guessed_word, const Feedback& feedback);
     virtual std::string guess_word() const;
-    virtual void reset();
 
 protected:
-    const std::vector<std::string>& words;   
+    const std::vector<std::string>& dictionary;
+    const std::vector<std::string>& targets;
     std::optional<std::string> initial_guess;
     std::vector<std::string> consistent_words;
 };
@@ -53,7 +52,7 @@ protected:
 // Wordle strategy that optimizes gained information in each turn
 class GreedyWordleStrategy : public SimpleWordleStrategy {
 public:
-    GreedyWordleStrategy(const std::vector<std::string>& words, std::optional<std::string> initial_guess = std::nullopt, bool adverserial = false);
+    GreedyWordleStrategy(const std::vector<std::string>& dictionary, const std::vector<std::string>& targets, std::optional<std::string> initial_guess = std::nullopt, bool adverserial = false);
 
     virtual std::string guess_word() const;
 

@@ -17,13 +17,11 @@
 
 using namespace std;
 
-const string WORD_LIST_PATH = "./data/deutsch.txt";
+const string DICTIONARY_PATH = "./data/de/dictionary.txt";
+const string TARGETS_PATH = "./data/de/targets.txt";
 
-int main()
-{
-    cout << "Reading word list..." << endl;
-
-    ifstream file(WORD_LIST_PATH, ios::in);
+vector<string> read_word_list(const string& path) {
+    ifstream file(path, ios::in);
     set<string> word_set;
     string word;
     while (file >> word) {
@@ -44,7 +42,16 @@ int main()
         word_set.insert(word);
     }
     vector<string> words(word_set.begin(), word_set.end());
-    cout << "Number of unique words with " << WORDLE_LENGTH << " characters: " << words.size() << endl;
+    return words;
+}
+
+int main()
+{
+    cout << "Reading word lists..." << endl;
+    vector<string> dictionary = read_word_list(DICTIONARY_PATH);
+    vector<string> targets = read_word_list(TARGETS_PATH);
+    cout << "Number of unique words with " << WORDLE_LENGTH << " characters in dictionary : " << dictionary.size() << endl;
+    cout << "Number of unique words with " << WORDLE_LENGTH << " characters in targets    : " << targets.size() << endl;
 
     // setup strategies
     typedef function<unique_ptr<WordleStrategy>()> WordleStrategyGenerator;
@@ -52,18 +59,18 @@ int main()
     map<string, string> initial_guesses;
 
     // pre-calculate initial guesses
-    string initial_guess_simple = SimpleWordleStrategy(words).guess_word();
-    string initial_guess_greedy = GreedyWordleStrategy(words).guess_word();
-    string initial_guess_greedy_adv = GreedyWordleStrategy(words, nullopt, true).guess_word();
+    string initial_guess_simple = SimpleWordleStrategy(dictionary, targets).guess_word();
+    string initial_guess_greedy = GreedyWordleStrategy(dictionary, targets).guess_word();
+    string initial_guess_greedy_adv = GreedyWordleStrategy(dictionary, targets, nullopt, true).guess_word();
 
-    strategies["simple"] = [&] { return make_unique<SimpleWordleStrategy>(words, initial_guess_simple); };
-    strategies["greedy"] = [&] { return make_unique<GreedyWordleStrategy>(words, initial_guess_greedy); };
-    strategies["greedy_adv"] = [&] { return make_unique<GreedyWordleStrategy>(words, initial_guess_greedy_adv, true); };
+    strategies["simple"] = [&] { return make_unique<SimpleWordleStrategy>(dictionary, targets, initial_guess_simple); };
+    strategies["greedy"] = [&] { return make_unique<GreedyWordleStrategy>(dictionary, targets, initial_guess_greedy); };
+    strategies["greedy_adv"] = [&] { return make_unique<GreedyWordleStrategy>(dictionary, targets, initial_guess_greedy_adv, true); };
 
     srand(time(nullptr)); // use current time as seed for random generator
 
     cout << "Playing example game..." << endl;
-    string test_word = words[rand() % words.size()];
+    string test_word = targets[rand() % targets.size()];
     for (auto& named_strat : strategies) {
         cout << "--- " << named_strat.first << " ---" << endl;
         play_wordle(test_word, *named_strat.second());
@@ -86,7 +93,7 @@ int main()
     // get sample of test words
     const unsigned int N_GAMES = 1024;
     vector<string> test_words;
-    std::sample(words.begin(), words.end(), std::back_inserter(test_words),
+    std::sample(targets.begin(), targets.end(), std::back_inserter(test_words),
         N_GAMES, std::mt19937{ std::random_device{}() });
     
     // run games on test words in parallel

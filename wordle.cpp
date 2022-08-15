@@ -68,10 +68,10 @@ void print_feedback(const std::string& word, const Feedback& feedback) {
 }
 
 
-SimpleWordleStrategy::SimpleWordleStrategy(const std::vector<std::string>& words, std::optional<std::string> initial_guess /*= std::nullopt*/) :
-    words(words), initial_guess(initial_guess)
+SimpleWordleStrategy::SimpleWordleStrategy(const std::vector<std::string>& dictionary, const std::vector<std::string>& targets, std::optional<std::string> initial_guess /*= std::nullopt*/) :
+    dictionary(dictionary), targets(targets), initial_guess(initial_guess)
 {
-    copy(words.begin(), words.end(), back_inserter(consistent_words));
+    copy(targets.begin(), targets.end(), back_inserter(consistent_words));
 }
 
 void SimpleWordleStrategy::process_feedback(const std::string& guessed_word, const Feedback& feedback) {
@@ -85,26 +85,20 @@ void SimpleWordleStrategy::process_feedback(const std::string& guessed_word, con
 }
 
 std::string SimpleWordleStrategy::guess_word() const {
-    if (consistent_words.size() == words.size() && initial_guess.has_value())
+    if (consistent_words.size() == targets.size() && initial_guess.has_value())
         return initial_guess.value();
 
     return *(consistent_words.begin());
 }
 
-void SimpleWordleStrategy::reset()
-{
-    consistent_words.clear();
-    copy(words.begin(), words.end(), back_inserter(consistent_words));
-}
 
-
-GreedyWordleStrategy::GreedyWordleStrategy(const std::vector<std::string>& words, 
+GreedyWordleStrategy::GreedyWordleStrategy(const std::vector<std::string>& dictionary, const std::vector<std::string>& targets,
     std::optional<std::string> initial_guess /*= std::nullopt*/,  bool adverserial /*= false*/)
-    : SimpleWordleStrategy(words, initial_guess), adverserial(adverserial)
+    : SimpleWordleStrategy(dictionary, targets, initial_guess), adverserial(adverserial)
 {}
 
 std::string GreedyWordleStrategy::guess_word() const {
-    if (consistent_words.size() == words.size() && initial_guess.has_value())
+    if (consistent_words.size() == targets.size() && initial_guess.has_value())
         return initial_guess.value();
 
     if (consistent_words.size() == 1)
@@ -112,12 +106,12 @@ std::string GreedyWordleStrategy::guess_word() const {
 
     // compute word scores
     vector<float> scores;
-    for (auto& word : words) {
+    for (auto& word : dictionary) {
         scores.push_back(score_word(word));
     }
 
     // return word with maximum score
-    return words[distance(scores.begin(), max_element(scores.begin(), scores.end()))];
+    return dictionary[distance(scores.begin(), max_element(scores.begin(), scores.end()))];
 }
 
 float GreedyWordleStrategy::score_word(const std::string& word) const {
@@ -144,7 +138,6 @@ float GreedyWordleStrategy::score_word(const std::string& word) const {
 }
 
 unsigned int play_wordle(const std::string& true_word, WordleStrategy& strategy, unsigned int MAX_TURNS /*= 10*/, bool silent /*= false*/) {
-    strategy.reset();
     if (!silent)
         cout << true_word << endl;
     for (unsigned int i_turn = 0; i_turn < MAX_TURNS; ++i_turn) {
